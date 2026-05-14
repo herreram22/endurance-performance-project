@@ -1,0 +1,12 @@
+# Ignore the following directories
+data_processed/
+data_raw/
+dev_logs/
+
+# Ignore the following files
+files.txt
+
+*parquet
+*fit
+*zip
+.DS_Store
