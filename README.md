@@ -77,13 +77,14 @@ Long-term goals may include:
 ```text
 .
 ├── notebooks/
-│   ├── 01_parse_activities.ipynb
-│   ├── 02_parse_metrics.ipynb
-│   ├── 03_parse_race_predictor.ipynb
-│   ├── 04_parse_training_readiness.ipynb
-│   ├── 05_parse_max_met.ipynb
-│   ├── 06_parse_training_history.ipynb
-│   ├── 07_daily_master_table.ipynb
+|   ├── data_parsing/
+|   │   ├── 01_parse_activities.ipynb
+|   │   ├── 02_parse_metrics.ipynb
+|   │   ├── 03_parse_race_predictor.ipynb
+|   │   ├── 04_parse_training_readiness.ipynb
+|   │   ├── 05_parse_max_met.ipynb
+|   │   ├── 06_parse_training_history.ipynb
+|   │   ├── 07_daily_master_table.ipynb
 │   └── 08_prediction_analysis.ipynb
 │
 ├── data_processed/
