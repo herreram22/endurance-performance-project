@@ -548,7 +548,7 @@ def render_personal_best_tracker(events_df, runs_df, distance_unit="mi"):
 
     with st.expander("Data notes"):
         st.write(
-            "Race results come from `data_raw/events_table.csv`. Garmin activity records "
+            "Race results come from `data_processed/events_table.csv`. Garmin activity records "
             "from `runs_v1.parquet` are matched by same calendar date for context."
         )
         st.write(

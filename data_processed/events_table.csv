@@ -1,0 +1,17 @@
+date,event_type,label,official_time_min,race_type
+4/20/26,race,Boston Marathon,170.583,marathon
+1/7/26,training_block_start,Boston Build,,
+11/9/25,rest,Rest,,
+11/8/25,race,Indianapolis Marathon,164.48,marathon
+8/4/25,training_block_start,Indianapolis Build,,
+8/2/25,race,Beach to Beacon,36.567,10k
+6/8/25,race,East Bay Half Marathon,82.35,half
+2/8/25,race,Mesa Marathon,169.2833,marathon
+11/18/24,training_block_start,Mesa Build,,
+11/3/24,race,Cambridge Half,80.3,half
+9/7/24,race,BQ Marathon,180.933,marathon
+5/20/24,training_block_start,BQ Marathon Build,,
+7/28/24,race,Media Bogota 2024,87.467,half
+3/17/24,race,United Airlines NYC Half,81.68,half
+11/12/23,race,Harborside Half Marathon,87.25,half
+7/30/23,race,Media Bogota 2023,119.63,half

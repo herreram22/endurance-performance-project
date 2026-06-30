@@ -73,7 +73,10 @@ def load_daily_master():
 
 @st.cache_data
 def load_events():
-    df = pd.read_csv(RAW_DIR / EVENTS_FILE)
+    events_path = DATA_DIR / EVENTS_FILE
+    if not events_path.exists():
+        events_path = RAW_DIR / EVENTS_FILE
+    df = pd.read_csv(events_path)
     df["date"] = pd.to_datetime(df["date"], format="%m/%d/%y")
     return df
 
