@@ -4,7 +4,9 @@ import pandas as pd
 import streamlit as st
 
 
-DATA_DIR = Path(__file__).parent.parent / "data_processed"
+PROJECT_ROOT = Path(__file__).parent.parent
+DATA_DIR = PROJECT_ROOT / "data_processed"
+RAW_DIR = PROJECT_ROOT / "data_raw"
 
 BLOCK_FILES = {
     "BQ Marathon": "bq_block_daily_v1.parquet",
@@ -16,14 +18,29 @@ BLOCK_FILES = {
 SUMMARY_FILE = "marathon_block_summary_v1.parquet"
 RUNS_FILE = "runs_v1.parquet"
 DAILY_MASTER_FILE = "daily_master_v1.parquet"
+EVENTS_FILE = "events_table.csv"
 PREDICTION_COLUMN = "Marathon_pred_x"
 STABILITY_RANGE_MINUTES = 2
+
+
+def parse_prediction_minutes(series):
+    numeric_values = pd.to_numeric(series, errors="coerce")
+    missing_numeric = numeric_values.isna() & series.notna()
+    if missing_numeric.any():
+        parsed_times = pd.to_timedelta(series[missing_numeric], errors="coerce")
+        numeric_values.loc[missing_numeric] = parsed_times.dt.total_seconds() / 60
+    return numeric_values
 
 
 @st.cache_data
 def load_block_data(file_name):
     df = pd.read_parquet(DATA_DIR / file_name)
     df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date").reset_index(drop=True)
+    if "vo2MaxValue" in df:
+        df["vo2MaxValue"] = df["vo2MaxValue"].ffill()
+    if PREDICTION_COLUMN in df:
+        df[PREDICTION_COLUMN] = parse_prediction_minutes(df[PREDICTION_COLUMN]).ffill()
     return df
 
 
@@ -46,6 +63,18 @@ def load_runs():
 def load_daily_master():
     df = pd.read_parquet(DATA_DIR / DAILY_MASTER_FILE)
     df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date").reset_index(drop=True)
+    if "vo2MaxValue" in df:
+        df["vo2MaxValue"] = df["vo2MaxValue"].ffill()
+    if "Marathon_pred" in df:
+        df["Marathon_pred"] = parse_prediction_minutes(df["Marathon_pred"]).ffill()
+    return df
+
+
+@st.cache_data
+def load_events():
+    df = pd.read_csv(RAW_DIR / EVENTS_FILE)
+    df["date"] = pd.to_datetime(df["date"], format="%m/%d/%y")
     return df
 
 
@@ -54,6 +83,7 @@ def load_all_data():
         "summary": load_block_summary(),
         "runs": load_runs(),
         "daily": load_daily_master(),
+        "events": load_events(),
     }
 
 
