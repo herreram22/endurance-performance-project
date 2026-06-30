@@ -17,13 +17,36 @@ def apply_chart_theme(fig, height=420):
         template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=20, r=20, t=90, b=30),
-        title=dict(y=0.98, yanchor="top", font=dict(size=18, color="#1f2937")),
-        font=dict(color="#4b5563"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
+        margin=dict(l=26, r=24, t=92, b=34),
+        title=dict(y=0.98, yanchor="top", font=dict(size=18, color="#0f172a", family="Arial")),
+        font=dict(color="#0f172a", size=13, family="Arial"),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0,
+            bgcolor="rgba(255,255,255,0.92)",
+            bordercolor="rgba(148,163,184,0.35)",
+            borderwidth=1,
+            font=dict(size=12, color="#0f172a"),
+        ),
+        hoverlabel=dict(bgcolor="white", font_size=12, font_color="#0f172a"),
     )
-    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="#e5e7eb")
-    fig.update_yaxes(gridcolor="rgba(229,231,235,0.85)", zeroline=False, linecolor="#e5e7eb")
+    fig.update_xaxes(
+        showgrid=False,
+        zeroline=False,
+        linecolor="#cbd5e1",
+        title_font=dict(color="#0f172a", size=13),
+        tickfont=dict(color="#334155", size=12),
+    )
+    fig.update_yaxes(
+        gridcolor="rgba(148,163,184,0.24)",
+        zeroline=False,
+        linecolor="#cbd5e1",
+        title_font=dict(color="#0f172a", size=13),
+        tickfont=dict(color="#334155", size=12),
+    )
     return fig
 
 
@@ -121,13 +144,20 @@ def build_global_timeline_chart(daily_df, summary_df, distance_unit="mi"):
         )
         fig.add_annotation(
             x=row["race_date"],
-            y=1.02,
+            y=1.03,
             xref="x",
             yref="paper",
             text=row["block_name"].replace(" Marathon", ""),
             showarrow=False,
-            textangle=-35,
-            font=dict(size=11, color="#1f2937"),
+            xanchor="left",
+            yanchor="bottom",
+            textangle=0,
+            font=dict(size=11, color="#0f172a"),
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="rgba(148,163,184,0.55)",
+            borderpad=3,
+            xshift=4,
+            yshift=4,
         )
 
     fig.update_layout(

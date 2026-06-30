@@ -81,7 +81,12 @@ The dashboard currently focuses on:
 
 A public deployment is planned, but this remains an active personal research and engineering project rather than a production product.
 
-![Dashboard screenshot placeholder](https://via.placeholder.com/1200x640?text=Dashboard+Preview)
+### Preview
+A few snapshots of the current dashboard experience:
+
+| Overview | Insights | Exploration |
+| --- | --- | --- |
+| <img src="app/assets/Screenshot%202026-06-29%20at%2010.46.41%E2%80%AFPM.png" alt="Dashboard overview" width="320" /> | <img src="app/assets/Screenshot%202026-06-29%20at%2010.47.06%E2%80%AFPM.png" alt="Dashboard insights" width="320" /> | <img src="app/assets/Screenshot%202026-06-29%20at%2010.47.37%E2%80%AFPM.png" alt="Dashboard exploration" width="320" /> |
 
 ## Research
 

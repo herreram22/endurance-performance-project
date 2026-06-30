@@ -81,9 +81,16 @@ def standard_race_distance_miles(race_type):
 
 def render_page_intro(title, description, caption=None):
     if caption:
-        st.caption(caption.upper())
-    st.title(title)
-    st.write(description)
+        st.markdown(f'<div class="page-intro__eyebrow">{caption.upper()}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="page-intro">
+            <div class="page-intro__title">{title}</div>
+            <div class="page-intro__description">{description}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def figure_caption(text):
@@ -174,14 +181,14 @@ def render_landing_page():
             <div class="landing-scrim">
                 <div class="landing-bubble">
                     <div class="landing-eyebrow">Endurance Performance Project</div>
-                    <h1 class="landing-title">A living archive of training, racing, and adaptation.</h1>
+                    <h1 class="landing-title">What years of training history can teach you about performance.</h1>
                     <div class="landing-copy">
-                        This dashboard turns Garmin history into a personal performance system:
-                        marathon blocks, official race outcomes, prediction dynamics, training
-                        volume, VO2, readiness, and the long arc of becoming fitter over time.
+                        This dashboard turns personal Garmin history into a sharper story about
+                        marathon blocks, race predictions, recovery, training load, and the slow,
+                        measurable arc of becoming fitter over time.
                     </div>
                     <div class="landing-actions">
-                        <a class="landing-enter" href="?dashboard=1" target="_self">Enter dashboard</a>
+                        <a class="landing-enter" href="?dashboard=1" target="_self">Explore the story</a>
                     </div>
                 </div>
             </div>
@@ -286,12 +293,17 @@ def render_overview(summary_df, runs_df, distance_unit="mi"):
     render_home_hero(hero_image)
 
     st.write(
-        "The goal is to turn years of training history into a clearer performance "
-        "record: how race predictions evolved, when they stabilized, how training load "
-        "and recovery signals moved, and where the watch aligned with race-day reality."
+        "I wanted to understand what my own training history could actually teach me. "
+        "This dashboard turns that curiosity into a more legible story about marathon blocks, "
+        "race predictions, recovery, training load, and the moments where the watch and reality "
+        "finally began to line up."
+    )
+    st.markdown(
+        '<div class="story-note">This is a personal, exploratory project built from years of Garmin history. It is meant to share the story, the questions, and the care behind the work—not to present a polished commercial product or a universal scientific claim.</div>',
+        unsafe_allow_html=True,
     )
 
-    st.subheader("Start Here")
+    st.markdown('<div class="page-intro page-intro--compact"><div class="page-intro__title">Start Here</div><div class="page-intro__description">Use this launch pad to orient yourself before diving into the deeper story behind training, recovery, and what the data suggests about race performance.</div></div>', unsafe_allow_html=True)
     start_columns = st.columns(4)
     with start_columns[0]:
         render_html_card(
@@ -334,7 +346,7 @@ def render_overview(summary_df, runs_df, distance_unit="mi"):
         ]
     )
 
-    st.subheader("Historical Running Volume")
+    st.markdown('<div class="page-intro page-intro--compact"><div class="page-intro__title">Historical Running Volume</div><div class="page-intro__description">A broader view of the training archive that shows how consistency, setbacks, and progression fit together over time.</div></div>', unsafe_allow_html=True)
     st.write(
         "A month-by-month view of the full training archive. The marathon block pages "
         "build on this broader base instead of treating each race cycle in isolation."
@@ -345,7 +357,7 @@ def render_overview(summary_df, runs_df, distance_unit="mi"):
         "ramps, downtime, and the background training load behind each marathon block."
     )
 
-    st.subheader("Research Questions")
+    st.markdown('<div class="page-intro page-intro--compact"><div class="page-intro__title">Research Questions</div><div class="page-intro__description">These questions shape the analysis and turn the dashboard into a more deliberate exploration of what the data is suggesting.</div></div>', unsafe_allow_html=True)
     question_columns = st.columns(3)
     question_columns[0].write("**Prediction behavior**")
     question_columns[0].write("How did Garmin marathon estimates move as training became more consistent and race-specific?")
@@ -354,7 +366,7 @@ def render_overview(summary_df, runs_df, distance_unit="mi"):
     question_columns[2].write("**Race outcome context**")
     question_columns[2].write("Where did final predictions overestimate or underestimate the official result?")
 
-    st.subheader("Marathon Block Snapshot")
+    st.markdown('<div class="page-intro page-intro--compact"><div class="page-intro__title">Marathon Block Snapshot</div><div class="page-intro__description">A quick scan of each marathon block so the key milestones and turning points are easy to compare at a glance.</div></div>', unsafe_allow_html=True)
     snapshot_columns = st.columns(summary_df["block_name"].nunique())
     for column, (_, row) in zip(snapshot_columns, summary_df.sort_values("race_date").iterrows()):
         column.metric(
@@ -401,7 +413,8 @@ def render_key_findings(summary_df, distance_unit="mi"):
         "Key Findings",
         (
             "A concise synthesis of the marathon block analysis: what looked meaningful, "
-            "where the watch was useful, and where the evidence is still early."
+            "where Garmin appeared useful, and where the evidence is still early enough to "
+            "treat with humility."
         ),
         "Dashboard synthesis",
     )
@@ -468,7 +481,8 @@ def render_timeline_view(summary_df, daily_df, distance_unit="mi"):
         "Timeline View",
         (
             "A single longitudinal view that overlays weekly distance, marathon race dates, "
-            "VO2 max, and Garmin marathon prediction changes."
+            "VO2 max, and Garmin marathon prediction changes. It helps the build feel like "
+            "one evolving story rather than a series of disconnected snapshots."
         ),
         "All-history training timeline",
     )
@@ -504,7 +518,7 @@ def render_personal_best_tracker(events_df, runs_df, distance_unit="mi"):
         "Personal Best Tracker",
         (
             "A race-result tracker built from the events table, with same-day Garmin "
-            "activities matched in for supporting activity details."
+            "activities matched in for context rather than to overstate the narrative."
         ),
         "Performance milestones",
     )
@@ -552,7 +566,7 @@ def render_how_garmin_works():
         "How Garmin Works",
         (
             "Context for interpreting Garmin race predictions and the assumptions behind "
-            "this personal analysis."
+            "this personal analysis, without implying that the model is fully transparent."
         ),
         "Model context",
     )
@@ -594,7 +608,8 @@ def render_block_explorer(summary_df, distance_unit="mi"):
         "Marathon Block Explorer",
         (
             "A focused cockpit for each marathon build, connecting training volume, "
-            "load, readiness, physiology, prediction movement, and race outcome context."
+            "load, readiness, physiology, prediction movement, and race outcome context "
+            "with the same care and restraint the project deserves."
         ),
         "Block-level performance view",
     )
@@ -797,7 +812,7 @@ def render_prediction_dynamics(summary_df, distance_unit="mi"):
         st.write(
             "The analysis did not uncover one clean driver of Garmin prediction changes. "
             "Instead, the story appears to be block-specific: prediction curves, volatility, "
-            "and final error all changed depending on the training cycle."
+            "and final error all shifted depending on the training cycle."
         )
         finding_columns = st.columns(2)
         with finding_columns[0]:
@@ -805,7 +820,7 @@ def render_prediction_dynamics(summary_df, distance_unit="mi"):
             st.write(
                 "Garmin marathon predictions did not evolve uniformly across training "
                 "cycles. Indianapolis looked relatively stable, Mesa showed more "
-                "abrupt swings, BQ had repeated oscillation, and Boston showed an "
+                "abrupt swings, BQ exhibited repeated oscillation, and Boston showed an "
                 "initial adaptation phase followed by steadier behavior."
             )
             st.write("**Stabilization may be meaningful.**")
@@ -938,7 +953,7 @@ def render_prediction_dynamics(summary_df, distance_unit="mi"):
         st.subheader("Final Estimate vs Race Outcome")
         st.write(
             "The accuracy view separates two ideas: how much the prediction changed "
-            "during the block, and how close the final pre-race estimate was to the "
+            "during the block and how close the final pre-race estimate was to the "
             "official result."
         )
         left, right = st.columns(2)
@@ -993,7 +1008,8 @@ def render_running_atlas(runs_df, distance_unit="mi"):
         "Running Atlas",
         (
             "An interactive map of the training archive, built from Garmin activity GPS "
-            "coordinates. This view turns the run log into a geographic footprint."
+            "coordinates. This view turns the run log into a geographic footprint that is "
+            "easier to explore and reflect on."
         ),
         "Athlete training history atlas",
     )

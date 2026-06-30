@@ -39,11 +39,11 @@ st.markdown(
     """
     <style>
     :root {
-        --hp-ink: #1f2937;
-        --hp-soft-ink: #4b5563;
-        --hp-muted: #6b7280;
-        --hp-border: #e5e7eb;
-        --hp-panel: rgba(255, 255, 255, 0.88);
+        --hp-ink: #0f172a;
+        --hp-soft-ink: #334155;
+        --hp-muted: #64748b;
+        --hp-border: #e2e8f0;
+        --hp-panel: rgba(255, 255, 255, 0.92);
         --hp-accent: #2563eb;
         --hp-accent-soft: #eff6ff;
         --hp-green: #16a34a;
@@ -72,8 +72,66 @@ st.markdown(
         line-height: 1.05;
     }
 
+    h2 {
+        font-weight: 750;
+        margin-top: 1.7rem;
+        margin-bottom: 0.55rem;
+    }
+
+    .page-intro {
+        margin-bottom: 1.1rem;
+        padding: 1.05rem 1.15rem;
+        border: 1px solid rgba(229, 231, 235, 0.9);
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%);
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.045);
+    }
+
+    .page-intro--compact {
+        padding: 0.9rem 1rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .page-intro__eyebrow {
+        color: var(--hp-accent);
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+    }
+
+    .page-intro__title {
+        color: var(--hp-ink);
+        font-size: clamp(1.55rem, 2.5vw, 2.15rem);
+        font-weight: 800;
+        line-height: 1.12;
+        margin: 0;
+    }
+
+    .page-intro__description {
+        color: var(--hp-soft-ink);
+        font-size: 0.98rem;
+        line-height: 1.65;
+        margin-top: 0.45rem;
+        max-width: 960px;
+    }
+
     p, li, label, .stMarkdown {
         color: var(--hp-soft-ink);
+    }
+
+    .story-note {
+        margin: 0.9rem 0 1.15rem;
+        padding: 0.95rem 1rem;
+        border: 1px solid rgba(37, 99, 235, 0.15);
+        border-left: 4px solid var(--hp-accent);
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(239, 246, 255, 0.92) 0%, rgba(255, 255, 255, 0.97) 100%);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+        color: var(--hp-ink);
+        font-size: 0.96rem;
+        line-height: 1.65;
     }
 
     div[data-testid="stMarkdownContainer"],
@@ -117,24 +175,39 @@ st.markdown(
     div[data-testid="stMetric"] {
         background: var(--hp-panel);
         border: 1px solid var(--hp-border);
-        border-radius: 8px;
-        padding: 1rem 1rem 0.85rem;
+        border-radius: 10px;
+        padding: 1rem 1rem 0.9rem;
         box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
         backdrop-filter: blur(12px);
+        min-height: 7rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 0.25rem;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 
     div[data-testid="stMetricLabel"] {
         color: var(--hp-muted);
-        font-size: 0.82rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        line-height: 1.35;
     }
 
     div[data-testid="stMetricValue"] {
         color: var(--hp-ink);
-        font-weight: 750;
+        font-weight: 800;
+        font-size: clamp(1.05rem, 2.3vw, 1.35rem);
+        line-height: 1.2;
     }
 
     div[data-testid="stMetricDelta"] {
         color: var(--hp-accent);
+        font-size: 0.92rem;
+        font-weight: 650;
     }
 
     div[data-testid="stCaptionContainer"] {
@@ -369,9 +442,10 @@ st.markdown(
     .pb-card,
     .placeholder-panel {
         border: 1px solid var(--hp-border);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.88);
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.055);
+        border-left: 4px solid var(--hp-accent);
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%);
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.055);
         padding: 1.1rem 1.15rem;
         height: 100%;
     }
@@ -533,7 +607,7 @@ if not st.session_state.dashboard_started:
     render_landing_page()
     st.stop()
 
-st.sidebar.title("Endurance Analytics")
+st.sidebar.title("My Endurance Story")
 if st.sidebar.button("Start over"):
     st.session_state.dashboard_started = False
     st.query_params.clear()
@@ -563,7 +637,7 @@ page = st.sidebar.pills(
 )
 
 st.sidebar.divider()
-st.sidebar.caption("Historical Garmin export analysis")
+st.sidebar.caption("Built from my own Garmin history")
 st.sidebar.caption(f"{summary_df['block_name'].nunique()} marathon blocks")
 
 if page == "Overview":
