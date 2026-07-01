@@ -1,6 +1,8 @@
 # Ignore the following directories
 data_raw/
 dev_logs/
+data_processed/athletes
+.venv
 
 # Ignore the following files
 files.txt

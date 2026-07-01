@@ -7,8 +7,11 @@ A personal project for turning Garmin exports, marathon training history, and ph
 [![NumPy](https://img.shields.io/badge/NumPy-2.x-013243)](https://numpy.org/)
 [![Plotly](https://img.shields.io/badge/Plotly-Interactive-3F4F75)](https://plotly.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B)](https://streamlit.io/)
+[![Live Dashboard](https://img.shields.io/badge/Live%20Dashboard-Open%20Now-brightgreen)](https://endurance-analytics.streamlit.app)
 [![Status](https://img.shields.io/badge/Status-Exploratory-orange)](https://github.com/)
 [![License](https://img.shields.io/badge/License-TBD-lightgrey)](https://github.com/)
+
+**Dashboard:** https://endurance-analytics.streamlit.app
 
 ---
 
