@@ -11,9 +11,38 @@ ANALYTICS_DATA_DIR = DATA_DIR / "pablo_dashboard_analytics"
 
 
 def _resolve_data_dir():
-    if ANALYTICS_DATA_DIR.exists():
-        return ANALYTICS_DATA_DIR
-    return DATA_DIR
+    for candidate in [ANALYTICS_DATA_DIR, DATA_DIR, PROJECT_ROOT / "data_processed" / "pablo_dashboard_analytics"]:
+        if candidate.exists():
+            return candidate
+    return ANALYTICS_DATA_DIR
+
+
+def _resolve_data_path(file_name):
+    candidates = [
+        DATA_DIR / file_name,
+        ANALYTICS_DATA_DIR / file_name,
+        RAW_DIR / file_name,
+        PROJECT_ROOT / file_name,
+        PROJECT_ROOT / "data_processed" / file_name,
+        PROJECT_ROOT / "data_processed" / "pablo_dashboard_analytics" / file_name,
+        Path.cwd() / file_name,
+        Path.cwd() / "data_processed" / file_name,
+        Path.cwd() / "data_processed" / "pablo_dashboard_analytics" / file_name,
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    for candidate in PROJECT_ROOT.rglob(file_name):
+        if candidate.is_file():
+            return candidate
+
+    for candidate in Path.cwd().rglob(file_name):
+        if candidate.is_file():
+            return candidate
+
+    return candidates[0]
 
 
 DATA_DIR = _resolve_data_dir()
@@ -44,7 +73,7 @@ def parse_prediction_minutes(series):
 
 @st.cache_data
 def load_block_data(file_name):
-    df = pd.read_parquet(DATA_DIR / file_name)
+    df = pd.read_parquet(_resolve_data_path(file_name))
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").reset_index(drop=True)
     if "vo2MaxValue" in df:
@@ -56,7 +85,7 @@ def load_block_data(file_name):
 
 @st.cache_data
 def load_block_summary():
-    df = pd.read_parquet(DATA_DIR / SUMMARY_FILE)
+    df = pd.read_parquet(_resolve_data_path(SUMMARY_FILE))
     df["race_date"] = pd.to_datetime(df["race_date"])
     df["stable_date"] = pd.to_datetime(df["stable_date"])
     return df
@@ -64,14 +93,14 @@ def load_block_summary():
 
 @st.cache_data
 def load_runs():
-    df = pd.read_parquet(DATA_DIR / RUNS_FILE)
+    df = pd.read_parquet(_resolve_data_path(RUNS_FILE))
     df["start_time"] = pd.to_datetime(df["start_time"])
     return df
 
 
 @st.cache_data
 def load_daily_master():
-    df = pd.read_parquet(DATA_DIR / DAILY_MASTER_FILE)
+    df = pd.read_parquet(_resolve_data_path(DAILY_MASTER_FILE))
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date").reset_index(drop=True)
     if "vo2MaxValue" in df:
@@ -83,11 +112,7 @@ def load_daily_master():
 
 @st.cache_data
 def load_events():
-    events_path = DATA_DIR / EVENTS_FILE
-    if not events_path.exists():
-        events_path = RAW_DIR / EVENTS_FILE
-    if not events_path.exists():
-        events_path = ANALYTICS_DATA_DIR / EVENTS_FILE
+    events_path = _resolve_data_path(EVENTS_FILE)
     df = pd.read_csv(events_path)
     df["date"] = pd.to_datetime(df["date"], format="%m/%d/%y")
     return df
