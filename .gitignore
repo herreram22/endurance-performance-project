@@ -10,3 +10,13 @@ files.txt
 *fit
 *zip
 .DS_Store
+
+data_audit_report.md
+data_compare_report.md
+data_processed_temp/
+data_reports/
+docs/
+parsing_test_report.txt
+src/schema/
+src/tools/
+tests/

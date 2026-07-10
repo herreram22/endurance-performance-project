@@ -92,6 +92,26 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
         return pd.DataFrame()
 
     runs = normalize_date(runs)
+    # Load field mappings to resolve raw vs canonical column names
+    import json
+    mapping = {}
+    try:
+        mapping = json.load(open(Path(__file__).parent / "schema" / "field_mappings.json"))
+    except Exception:
+        mapping = {}
+
+    def _resolve_col(col, df):
+        # Return the column name present in df: prefer the original raw name, else the mapped canonical name
+        if col in df.columns:
+            return col
+        mapped = mapping.get(col)
+        if mapped and mapped in df.columns:
+            return mapped
+        # also try reverse: if col looks like canonical, try to find raw by checking mapping items
+        for raw, canon in mapping.items():
+            if canon == col and raw in df.columns:
+                return raw
+        return None
 
     agg_map = {
         "athlete_id": ("athlete_id", "first"),
@@ -124,39 +144,62 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
         if agg_expr[0] in runs.columns:
             agg_map[output_col] = agg_expr
 
-    daily_master = runs.groupby("date").agg(**agg_map).reset_index()
+    # Resolve agg_map columns to actual columns present in `runs`
+    resolved_agg = {}
+    for out_col, expr in agg_map.items():
+        src = expr[0]
+        func = expr[1]
+        actual = _resolve_col(src, runs)
+        if actual is not None:
+            resolved_agg[out_col] = (actual, func)
+
+    daily_master = runs.groupby("date").agg(**resolved_agg).reset_index()
 
     for optional_col in optional_columns.keys():
         if optional_col not in daily_master.columns:
             daily_master[optional_col] = np.nan
 
     if metrics is not None and not metrics.empty:
-        metrics_subset = _select_existing(
-            drop_dup_dates(normalize_date(metrics), keep="first"),
-            [
-                "date",
-                "acwrPercent",
-                "acwrStatus",
-                "acwrStatusFeedback",
-                "dailyTrainingLoadAcute",
-                "dailyTrainingLoadChronic",
-                "dailyAcuteChronicWorkloadRatio",
-            ],
-        )
+        metrics_df = drop_dup_dates(normalize_date(metrics), keep="first")
+        # expand candidate columns using mapping
+        desired = [
+            "date",
+            "acwrPercent",
+            "acwrStatus",
+            "acwrStatusFeedback",
+            "dailyTrainingLoadAcute",
+            "dailyTrainingLoadChronic",
+            "dailyAcuteChronicWorkloadRatio",
+        ]
+        expanded = []
+        for col in desired:
+            expanded.append(col)
+            if col in mapping:
+                expanded.append(mapping[col])
+
+        metrics_subset = _select_existing(metrics_df, expanded)
         daily_master = daily_master.merge(metrics_subset, on="date", how="left")
 
     if predictions is not None and not predictions.empty:
-        prediction_subset = _select_existing(
-            drop_dup_dates(normalize_date(predictions), keep="last"),
-            ["date", "5K_pred", "10K_pred", "Half_pred", "Marathon_pred"],
-        )
+        pred_df = drop_dup_dates(normalize_date(predictions), keep="last")
+        desired = ["date", "5K_pred", "10K_pred", "Half_pred", "Marathon_pred"]
+        expanded = []
+        for col in desired:
+            expanded.append(col)
+            if col in mapping:
+                expanded.append(mapping[col])
+        prediction_subset = _select_existing(pred_df, expanded)
         daily_master = daily_master.merge(prediction_subset, on="date", how="left")
 
     if maxmet is not None and not maxmet.empty:
-        max_met_subset = _select_existing(
-            drop_dup_dates(normalize_date(maxmet), keep="last"),
-            ["date", "vo2MaxValue", "fitnessAge", "fitnessAgeDescription", "maxMet"],
-        )
+        mm = drop_dup_dates(normalize_date(maxmet), keep="last")
+        desired = ["date", "vo2MaxValue", "fitnessAge", "fitnessAgeDescription", "maxMet"]
+        expanded = []
+        for col in desired:
+            expanded.append(col)
+            if col in mapping:
+                expanded.append(mapping[col])
+        max_met_subset = _select_existing(mm, expanded)
         daily_master = daily_master.merge(max_met_subset, on="date", how="left")
 
     if readiness is not None and not readiness.empty:
@@ -202,5 +245,13 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
         )
         daily_master = daily_master.merge(training_history_daily_df, on="date", how="left")
 
-    daily_master["athlete_id"] = daily_master["athlete_id"].fillna(athlete_id)
+    daily_master["athlete_id"] = daily_master["athlete_id"] = athlete_id
+
+    if "date" in daily_master.columns:
+        bad_dates = pd.to_datetime(daily_master["date"], errors="coerce")
+        bad_mask = bad_dates.dt.year == 1970
+        if bad_mask.any():
+            print(f"Warning: dropping {bad_mask.sum()} invalid 1970-01-01 daily_master rows for athlete {athlete_id}")
+            daily_master = daily_master.loc[~bad_mask]
+
     return daily_master.sort_values("date").reset_index(drop=True)

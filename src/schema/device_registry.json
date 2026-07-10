@@ -1,0 +1,10 @@
+{
+  "example_device_model": {
+    "model_name": "Garmin Forerunner 955",
+    "capabilities": ["heart_rate", "gps", "cadence", "elevation", "steps"]
+  },
+  "example_device_id_12345": {
+    "model_name": "Example Device 12345",
+    "capabilities": ["heart_rate", "gps"]
+  }
+}

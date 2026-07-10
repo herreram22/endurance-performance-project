@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: |
+          pytest -q
+      - name: Run schema validation (if processed data present)
+        run: |
+          if [ -d data_processed_temp ]; then
+            python src/tools/validate_schema.py --processed-root data_processed_temp || true
+          else
+            echo "No processed data to validate; skipping"
+          fi
+      - name: Generate device capability report (if processed data present)
+        run: |
+          if [ -d data_processed_temp ] || [ -d data_processed/athletes ]; then
+            python src/tools/device_capability.py --processed-roots data_processed_temp data_processed/athletes --output-dir data_reports || true
+          else
+            echo "No processed data found; skipping device capability report"
+          fi

@@ -1,0 +1,19 @@
+{
+  "calendarDate": "date",
+  "userProfilePK": "user_id",
+  "deviceId": "device_id",
+  "timestamp": "timestamp",
+  "timestampGMT": "timestamp",
+  "timestampGmt": "timestamp",
+  "timestampLocal": "timestamp_local",
+  "vo2MaxValue": "vo2max",
+  "maxMet": "max_met",
+  "raceTime5K": "race_time_5k",
+  "raceTime10K": "race_time_10k",
+  "raceTimeHalf": "race_time_half",
+  "raceTimeMarathon": "race_time_marathon",
+  "activityId": "activity_id",
+  "activityUuid": "activity_uuid",
+  "activity_id": "activity_id",
+  "user_id": "user_id"
+}

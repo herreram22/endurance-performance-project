@@ -1,0 +1,37 @@
+{
+  "athletes": [
+    {
+      "file": "data_processed_temp/athlete_001/daily_master.parquet",
+      "rows": 682,
+      "missing_columns": [],
+      "bad_1970_dates": 0,
+      "null_dates": 0,
+      "athlete_id_values": [
+        "athlete_001"
+      ],
+      "athlete": "athlete_001"
+    },
+    {
+      "file": "data_processed_temp/athlete_002/daily_master.parquet",
+      "rows": 2158,
+      "missing_columns": [],
+      "bad_1970_dates": 0,
+      "null_dates": 0,
+      "athlete_id_values": [
+        "athlete_002"
+      ],
+      "athlete": "athlete_002"
+    },
+    {
+      "file": "data_processed_temp/athlete_003/daily_master.parquet",
+      "rows": 1167,
+      "missing_columns": [],
+      "bad_1970_dates": 0,
+      "null_dates": 0,
+      "athlete_id_values": [
+        "athlete_003"
+      ],
+      "athlete": "athlete_003"
+    }
+  ]
+}

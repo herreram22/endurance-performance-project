@@ -48,9 +48,17 @@ def parse_garmin_date(series):
         return pd.to_datetime(series, errors="coerce")
 
     numeric = pd.to_numeric(series, errors="coerce")
-    if numeric.notna().mean() > 0.8 and numeric.dropna().gt(10**11).all():
-        return pd.to_datetime(numeric, unit="ms", errors="coerce").dt.normalize()
+    if numeric.notna().mean() > 0.8:
+        # decide units based on magnitude
+        mx = numeric.dropna().max()
+        if mx > 10 ** 12:
+            # very large -> milliseconds
+            return pd.to_datetime(numeric, unit="ms", errors="coerce").dt.normalize()
+        if mx > 10 ** 9:
+            # likely seconds
+            return pd.to_datetime(numeric, unit="s", errors="coerce").dt.normalize()
 
+    # fallback: let pandas infer formats for mixed types
     return pd.to_datetime(series, errors="coerce").dt.normalize()
 
 
@@ -83,3 +91,18 @@ def _concat_dataframes(frames):
 
 def _select_existing(df, columns):
     return df[[col for col in columns if col in df.columns]].copy()
+
+
+def apply_field_mapping(df, mapping):
+    """Rename columns in `df` according to `mapping` dict where keys are
+    source names (or variants) and values are canonical names.
+    Only renames columns that exist in the DataFrame.
+    """
+    if df is None or df.empty:
+        return df
+
+    # Build rename dict for columns present
+    rename = {src: dst for src, dst in mapping.items() if src in df.columns}
+    if rename:
+        return df.rename(columns=rename)
+    return df

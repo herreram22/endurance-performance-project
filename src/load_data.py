@@ -7,6 +7,16 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data_processed"
 RAW_DIR = PROJECT_ROOT / "data_raw"
+ANALYTICS_DATA_DIR = DATA_DIR / "pablo_dashboard_analytics"
+
+
+def _resolve_data_dir():
+    if ANALYTICS_DATA_DIR.exists():
+        return ANALYTICS_DATA_DIR
+    return DATA_DIR
+
+
+DATA_DIR = _resolve_data_dir()
 
 BLOCK_FILES = {
     "BQ Marathon": "bq_block_daily_v1.parquet",
@@ -76,6 +86,8 @@ def load_events():
     events_path = DATA_DIR / EVENTS_FILE
     if not events_path.exists():
         events_path = RAW_DIR / EVENTS_FILE
+    if not events_path.exists():
+        events_path = ANALYTICS_DATA_DIR / EVENTS_FILE
     df = pd.read_csv(events_path)
     df["date"] = pd.to_datetime(df["date"], format="%m/%d/%y")
     return df
