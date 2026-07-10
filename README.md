@@ -11,7 +11,7 @@ A personal project for turning Garmin exports, marathon training history, and ph
 [![Status](https://img.shields.io/badge/Status-Exploratory-orange)](https://github.com/)
 [![License](https://img.shields.io/badge/License-TBD-lightgrey)](https://github.com/)
 
-**Dashboard:** https://endurance-analytics.streamlit.app
+**Dashboard:** [https://endurance-analytics.streamlit.app](https://herreram22-health-performance-project-app-y3j5qh.streamlit.app)
 
 ---
 
