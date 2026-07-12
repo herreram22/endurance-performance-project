@@ -1,11 +1,122 @@
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 from helpers import normalize_date, drop_dup_dates, _select_existing, speed_to_pace
 
 # =========================
 # TRANSFORM
 # =========================
+def standardize_daily_master_schema(df):
+    """Normalize daily_master-like frames to the canonical athlete-day schema.
+
+    This keeps the existing per-athlete daily master layout intact while adding a
+    coverage flag for optional readiness features so downstream stacking keeps the
+    older-device athlete rows instead of dropping them.
+    """
+    if df is None or df.empty:
+        return df
+
+    df = df.copy()
+    df = normalize_date(df)
+
+    required = ["date", "athlete_id", "total_distance_km", "total_duration_minutes"]
+    for col in required:
+        if col not in df.columns:
+            df[col] = np.nan
+
+    readiness_cols = [
+        "readiness_score_first",
+        "readiness_score_last",
+        "readiness_score_mean",
+        "readiness_level_last",
+        "recovery_time_last",
+        "acute_load_last",
+        "sleep_score_last",
+        "valid_sleep_any",
+    ]
+    available_readiness_cols = [col for col in readiness_cols if col in df.columns]
+    if available_readiness_cols:
+        df["readiness_available"] = df[available_readiness_cols].notna().any(axis=1)
+    else:
+        df["readiness_available"] = False
+
+    return df
+
+
+def build_multi_athlete_daily_master(daily_master_frames):
+    """Stack multiple athlete-level daily master tables into one canonical panel.
+
+    The output is sorted by athlete_id and date so the combined table remains
+    athlete-local, not globally sorted by date.
+    """
+    frames = []
+    for frame in daily_master_frames:
+        if frame is None or frame.empty:
+            continue
+        frames.append(standardize_daily_master_schema(frame))
+
+    if not frames:
+        return pd.DataFrame()
+
+    base_cols = ["date", "athlete_id", "total_distance_km", "total_duration_minutes"]
+    extra_cols = []
+    for df in frames:
+        for col in df.columns:
+            if col not in base_cols and col not in extra_cols:
+                extra_cols.append(col)
+
+    # Keep the logical order stable across athletes for downstream analysis.
+    ordered_cols = list(base_cols)
+    for col in [
+        "readiness_score_last",
+        "readiness_level_last",
+        "recovery_time_last",
+        "acute_load_last",
+        "sleep_score_last",
+        "valid_sleep_any",
+        "readiness_snapshots",
+        "load_tunnel_min",
+        "training_status_first",
+        "training_status_last",
+        "training_status",
+        "fitness_level_trend",
+        "load_level_trend",
+        "load_tunnel_max",
+        "avg_power",
+        "max_power",
+        "avg_cadence",
+        "acwrPercent",
+        "acwrStatus",
+        "acwrStatusFeedback",
+        "dailyTrainingLoadAcute",
+        "dailyTrainingLoadChronic",
+        "dailyAcuteChronicWorkloadRatio",
+        "5K_pred",
+        "10K_pred",
+        "Half_pred",
+        "Marathon_pred",
+        "fitnessAge",
+        "fitnessAgeDescription",
+        "readiness_available",
+    ]:
+        if col in extra_cols and col not in ordered_cols:
+            ordered_cols.append(col)
+
+    for col in extra_cols:
+        if col not in ordered_cols:
+            ordered_cols.append(col)
+
+    combined = []
+    for df in frames:
+        combined.append(df.reindex(columns=ordered_cols))
+
+    out = pd.concat(combined, ignore_index=True, sort=False)
+    out["readiness_available"] = out["readiness_available"].fillna(False)
+    out = out.sort_values(["athlete_id", "date"]).reset_index(drop=True)
+    return out
+
+
 def create_running_table(df):
     runs_df = df[df["activityType"].eq("running")].copy()
     if runs_df.empty:
@@ -153,7 +264,39 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
         if actual is not None:
             resolved_agg[out_col] = (actual, func)
 
-    daily_master = runs.groupby("date").agg(**resolved_agg).reset_index()
+    run_daily = runs.groupby("date").agg(**resolved_agg).reset_index()
+
+    # Recovery and training signals exist on rest days too. Build a complete
+    # calendar spanning every available source instead of using run days as the
+    # table's grain.
+    date_series = []
+    for frame in (runs, metrics, predictions, readiness, maxmet, history):
+        if frame is None or frame.empty or "date" not in frame.columns:
+            continue
+        dates = pd.to_datetime(frame["date"], errors="coerce").dropna().dt.normalize()
+        if not dates.empty:
+            date_series.append(dates)
+
+    all_dates = pd.concat(date_series, ignore_index=True)
+    calendar = pd.DataFrame({
+        "date": pd.date_range(all_dates.min(), all_dates.max(), freq="D")
+    })
+    daily_master = calendar.merge(run_daily, on="date", how="left")
+    daily_master["athlete_id"] = athlete_id
+
+    zero_on_rest_days = [
+        "run_count",
+        "total_distance_km",
+        "total_distance_miles",
+        "total_duration_minutes",
+        "total_moving_minutes",
+        "total_elevation_gain_m",
+        "total_training_load",
+        "pr_count",
+    ]
+    for col in zero_on_rest_days:
+        if col in daily_master.columns:
+            daily_master[col] = daily_master[col].fillna(0)
 
     for optional_col in optional_columns.keys():
         if optional_col not in daily_master.columns:
@@ -245,7 +388,7 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
         )
         daily_master = daily_master.merge(training_history_daily_df, on="date", how="left")
 
-    daily_master["athlete_id"] = daily_master["athlete_id"] = athlete_id
+    daily_master["athlete_id"] = athlete_id
 
     if "date" in daily_master.columns:
         bad_dates = pd.to_datetime(daily_master["date"], errors="coerce")

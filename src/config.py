@@ -12,7 +12,7 @@ LOG_LEVEL = logging.INFO
 # Configure basic logging for the package (can be overridden by app)
 logging.basicConfig(level=LOG_LEVEL, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 # Toggle to enforce canonical schema fields on save (production)
-ENFORCE_SCHEMA = False
+ENFORCE_SCHEMA = True
 
 # Ordered filename patterns mapping to discovery keys. Each tuple is
 # (regex pattern, discovery_key). Patterns are evaluated in order; the

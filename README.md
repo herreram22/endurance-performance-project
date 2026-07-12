@@ -166,6 +166,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Process every athlete directory and rebuild the combined athlete-day panel:
+
+```bash
+python -m src.main --input-dir data_raw --output-dir data_processed/athletes
+```
+
+The pipeline writes individual tables under
+`data_processed/athletes/<athlete_id>/` and publishes the combined panel at
+`data_processed/athletes/all_athletes_daily_master.parquet`. Athlete exports,
+derived datasets, reports, and local dashboard images are excluded from Git.
+
 ## Roadmap
 
 ### Completed

@@ -7,9 +7,12 @@ from parsing import (
     parse_max_met,
     parse_training_history,
 )
-from table_builders import build_daily_master_table
+import pandas as pd
+from pathlib import Path
+
+from table_builders import build_daily_master_table, build_multi_athlete_daily_master
 from discover_paths import explore_files
-from save_output import save_outputs
+from save_output import save_outputs, save_all_athletes_daily_master
 
 # =========================
 # PIPELINE
@@ -58,6 +61,31 @@ def process_athlete(
     )
 
     return daily_master
+
+
+def refresh_all_athletes_daily_master(output_dir=DEFAULT_OUTPUT_DIR, overwrite=True):
+    """Rebuild the persisted panel from validated per-athlete outputs."""
+    output_dir = Path(output_dir)
+    frames = []
+    for athlete_dir in sorted(output_dir.iterdir() if output_dir.exists() else []):
+        if not athlete_dir.is_dir():
+            continue
+        path = athlete_dir / "daily_master.parquet"
+        if not path.exists():
+            continue
+        frame = pd.read_parquet(path)
+        ids = set(frame.get("athlete_id", pd.Series(dtype="object")).dropna().astype(str))
+        if ids != {athlete_dir.name}:
+            raise ValueError(
+                f"{path} contains athlete IDs {sorted(ids)}, expected {athlete_dir.name}"
+            )
+        frames.append(frame)
+
+    combined = build_multi_athlete_daily_master(frames)
+    if combined.empty:
+        raise RuntimeError(f"No per-athlete daily master files found in {output_dir}")
+    save_all_athletes_daily_master(combined, output_dir, overwrite=overwrite)
+    return combined
 
 
 if __name__ == "__main__":

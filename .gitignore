@@ -1,8 +1,12 @@
 # Ignore the following directories
 data_raw/
 dev_logs/
-data_processed/athletes
+data_processed/athletes/
+data_processed_temp/
+data_reports/
 .venv
+__pycache__/
+*.py[cod]
 
 # Ignore the following files
 files.txt
@@ -13,10 +17,15 @@ files.txt
 
 data_audit_report.md
 data_compare_report.md
-data_processed_temp/
-data_reports/
 docs/
 parsing_test_report.txt
-src/schema/
-src/tools/
-tests/
+# Athlete exports and derived datasets must never be committed.
+*.parquet
+*.csv
+*.fit
+*.FIT
+
+# Pablo's curated dashboard datasets are the only committed data exception.
+!data_processed/pablo_dashboard_analytics/
+!data_processed/pablo_dashboard_analytics/*.parquet
+!data_processed/pablo_dashboard_analytics/*.csv

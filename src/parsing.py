@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 
 from helpers import _read_json_records, _concat_dataframes, parse_garmin_date, drop_dup_dates, seconds_to_time
-from helpers import apply_field_mapping
+from helpers import apply_field_mapping, drop_invalid_dates
 import json
 from table_builders import create_running_table
 
@@ -49,7 +49,10 @@ def parse_activities(activity_files, athlete_id):
         return activities_df
 
     if failed_files:
-        print(f"Warning: {len(failed_files)} activity files failed to parse")
+        failures = "; ".join(f"{item['file']}: {item['error']}" for item in failed_files)
+        raise RuntimeError(
+            f"{len(failed_files)} activity file(s) failed to parse: {failures}"
+        )
 
     return create_running_table(activities_df)
 
@@ -70,8 +73,7 @@ def parse_metrics_files(file_path, athlete_id):
         pass
 
     if "date" in df.columns:
-        # if mapping renamed calendarDate -> date, parse it
-        df["date"] = parse_garmin_date(df["date"]) if df["date"].dtype == object else pd.to_datetime(df["date"], errors="coerce").dt.normalize()
+        df["date"] = parse_garmin_date(df["date"])
     elif "calendarDate" in df.columns:
         df["date"] = parse_garmin_date(df["calendarDate"])
     return df
@@ -86,7 +88,7 @@ def parse_metrics(metric_files, athlete_id):
         print("Warning: no metrics parsed")
         return df
 
-    return drop_dup_dates(df, keep="first")
+    return drop_dup_dates(drop_invalid_dates(df, "metrics"), keep="first")
 
 
 def parse_race_predictions_file(file_path, athlete_id):
@@ -104,7 +106,7 @@ def parse_race_predictions_file(file_path, athlete_id):
         pass
 
     if "date" in df.columns:
-        df["date"] = parse_garmin_date(df["date"]) if df["date"].dtype == object else pd.to_datetime(df["date"], errors="coerce").dt.normalize()
+        df["date"] = parse_garmin_date(df["date"])
     elif "calendarDate" in df.columns:
         df["date"] = parse_garmin_date(df["calendarDate"])
     return df
@@ -119,7 +121,7 @@ def parse_race_predictions(prediction_files, athlete_id):
         print("Warning: no race predictions parsed")
         return df
 
-    df = drop_dup_dates(df, keep="last")
+    df = drop_dup_dates(drop_invalid_dates(df, "race predictions"), keep="last")
 
     # Helper to pick the first existing candidate column name
     def _pick_col(df, candidates):
@@ -155,7 +157,7 @@ def parse_training_readiness_file(file_path, athlete_id):
         pass
 
     if "date" in df.columns:
-        df["date"] = parse_garmin_date(df["date"]) if df["date"].dtype == object else pd.to_datetime(df["date"], errors="coerce").dt.normalize()
+        df["date"] = parse_garmin_date(df["date"])
     elif "calendarDate" in df.columns:
         df["date"] = parse_garmin_date(df["calendarDate"])
     return df
@@ -170,6 +172,7 @@ def parse_training_readiness(readiness_files, athlete_id):
         print("Warning: no training readiness parsed")
         return df
 
+    df = drop_invalid_dates(df, "training readiness")
     return df.sort_values(["date", "timestampLocal" if "timestampLocal" in df.columns else "timestamp"])
 
 
@@ -188,7 +191,7 @@ def parse_max_met_files(file_path, athlete_id):
         pass
 
     if "date" in df.columns:
-        df["date"] = parse_garmin_date(df["date"]) if df["date"].dtype == object else pd.to_datetime(df["date"], errors="coerce").dt.normalize()
+        df["date"] = parse_garmin_date(df["date"])
     elif "calendarDate" in df.columns:
         df["date"] = parse_garmin_date(df["calendarDate"])
     return df
@@ -203,7 +206,7 @@ def parse_max_met(maxmet_files, athlete_id):
         print("Warning: no MaxMet parsed")
         return df
 
-    return df.sort_values("date").reset_index(drop=True)
+    return drop_invalid_dates(df, "MaxMet").sort_values("date").reset_index(drop=True)
 
 
 def parse_training_history_files(file_path, athlete_id):
@@ -221,7 +224,7 @@ def parse_training_history_files(file_path, athlete_id):
         pass
 
     if "date" in df.columns:
-        df["date"] = parse_garmin_date(df["date"]) if df["date"].dtype == object else pd.to_datetime(df["date"], errors="coerce").dt.normalize()
+        df["date"] = parse_garmin_date(df["date"])
     elif "calendarDate" in df.columns:
         df["date"] = parse_garmin_date(df["calendarDate"])
     return df
@@ -236,4 +239,4 @@ def parse_training_history(history_files, athlete_id):
         print("Warning: no training history parsed")
         return df
 
-    return df.sort_values("date").reset_index(drop=True)
+    return drop_invalid_dates(df, "training history").sort_values("date").reset_index(drop=True)

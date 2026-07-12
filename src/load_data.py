@@ -3,11 +3,15 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from table_builders import build_multi_athlete_daily_master
+
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data_processed"
 RAW_DIR = PROJECT_ROOT / "data_raw"
 ANALYTICS_DATA_DIR = DATA_DIR / "pablo_dashboard_analytics"
+ATHLETES_DATA_DIR = DATA_DIR / "athletes"
+ALL_ATHLETES_DAILY_MASTER_PATH = ATHLETES_DATA_DIR / "all_athletes_daily_master.parquet"
 
 
 def _resolve_data_dir():
@@ -108,6 +112,30 @@ def load_daily_master():
     if "Marathon_pred" in df:
         df["Marathon_pred"] = parse_prediction_minutes(df["Marathon_pred"]).ffill()
     return df
+
+
+@st.cache_data
+def load_multi_athlete_daily_master():
+    if ALL_ATHLETES_DAILY_MASTER_PATH.exists():
+        return pd.read_parquet(ALL_ATHLETES_DAILY_MASTER_PATH)
+
+    athletes_dir = ATHLETES_DATA_DIR
+    if not athletes_dir.exists():
+        return pd.DataFrame()
+
+    frames = []
+    for athlete_dir in sorted(athletes_dir.iterdir()):
+        if not athlete_dir.is_dir():
+            continue
+        daily_master_path = athlete_dir / "daily_master.parquet"
+        if not daily_master_path.exists():
+            continue
+        frames.append(pd.read_parquet(daily_master_path))
+
+    if not frames:
+        return pd.DataFrame()
+
+    return build_multi_athlete_daily_master(frames)
 
 
 @st.cache_data

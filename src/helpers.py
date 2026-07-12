@@ -51,6 +51,13 @@ def parse_garmin_date(series):
     if numeric.notna().mean() > 0.8:
         # decide units based on magnitude
         mx = numeric.dropna().max()
+        mn = numeric.dropna().min()
+        if mn >= 19000101 and mx <= 29991231:
+            return pd.to_datetime(
+                numeric.round().astype("Int64").astype("string"),
+                format="%Y%m%d",
+                errors="coerce",
+            ).dt.normalize()
         if mx > 10 ** 12:
             # very large -> milliseconds
             return pd.to_datetime(numeric, unit="ms", errors="coerce").dt.normalize()
@@ -60,6 +67,24 @@ def parse_garmin_date(series):
 
     # fallback: let pandas infer formats for mixed types
     return pd.to_datetime(series, errors="coerce").dt.normalize()
+
+
+def drop_invalid_dates(df, dataset_name="dataset"):
+    """Remove records that cannot participate in date-grained outputs."""
+    if df is None or df.empty or "date" not in df.columns:
+        return df
+    invalid = df["date"].isna()
+    if invalid.any():
+        sources = []
+        if "source_file" in df.columns:
+            sources = sorted(df.loc[invalid, "source_file"].dropna().astype(str).unique())
+        source_note = f" from {sources}" if sources else ""
+        print(
+            f"Warning: dropping {int(invalid.sum())} {dataset_name} record(s) "
+            f"with no valid date{source_note}"
+        )
+        df = df.loc[~invalid].copy()
+    return df.reset_index(drop=True)
 
 
 def normalize_date(df, date_col="date"):

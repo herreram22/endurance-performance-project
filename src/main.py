@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from config import BASE_PATH, DEFAULT_OUTPUT_DIR
-from pipeline import process_athlete
+from pipeline import process_athlete, refresh_all_athletes_daily_master
 
 
 def discover_athlete_dirs(raw_data_dir):
@@ -63,6 +63,7 @@ def main():
         raise RuntimeError(f"No athlete directories found in {input_dir}")
 
     print(f"Found {len(athlete_dirs)} athlete directories to process:")
+    failures = []
     for athlete_dir in athlete_dirs:
         print(f" - {athlete_dir.name}")
 
@@ -78,6 +79,15 @@ def main():
             )
         except Exception as error:
             print(f"Error processing {athlete_id}: {error}")
+            failures.append((athlete_id, str(error)))
+
+    if failures:
+        failed_ids = ", ".join(athlete_id for athlete_id, _ in failures)
+        raise RuntimeError(
+            f"Processing failed for {len(failures)} athlete(s): {failed_ids}"
+        )
+
+    refresh_all_athletes_daily_master(output_dir, overwrite=overwrite)
 
 
 if __name__ == "__main__":
