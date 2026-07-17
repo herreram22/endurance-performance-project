@@ -1,7 +1,12 @@
-"""Device registry utilities: validate and enrich capability reports.
+"""Enrich capability reports with a curated Garmin device registry.
 
-This is a scaffold. Populate `src/schema/device_registry.json` with mappings
-from device model keys or device IDs to known capability lists.
+This optional post-processing stage reads a capability JSON report and
+``src/schema/device_registry.json``, then annotates athlete entries whose
+detected device text matches registry keys. The current capability report stores
+column evidence rather than device values, so enrichment is deliberately a
+scaffold until a privacy-reviewed device-ID/model mapping is available.
+
+Inputs and outputs are JSON files; analytical Parquet data is not modified.
 """
 from pathlib import Path
 import json
@@ -11,6 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 def load_registry(path: Path = None):
+    """Load a device-model capability registry.
+
+    Args:
+        path (pathlib.Path | None): Optional registry JSON path. Defaults to the
+            production schema directory.
+
+    Returns:
+        dict: Registry mapping device/model keys to metadata.
+
+    Raises:
+        FileNotFoundError: If the registry path does not exist.
+        json.JSONDecodeError: If it is invalid JSON.
+    """
     if path is None:
         path = Path(__file__).parent.parent / "schema" / "device_registry.json"
     if not path.exists():
@@ -19,6 +37,23 @@ def load_registry(path: Path = None):
 
 
 def enrich_report(report_path: Path, registry_path: Path = None, out_path: Path = None):
+    """Add registry matches to an existing device-capability report.
+
+    Args:
+        report_path (pathlib.Path): Capability report JSON.
+        registry_path (pathlib.Path | None): Optional registry override.
+        out_path (pathlib.Path | None): Output JSON path. Defaults beside the
+            source report with an ``_enriched`` suffix.
+
+    Returns:
+        dict: Enriched report.
+
+    Raises:
+        FileNotFoundError: If the report or registry is missing.
+
+    Side Effects:
+        Writes the enriched JSON report and logs its location.
+    """
     report_path = Path(report_path)
     if not report_path.exists():
         raise FileNotFoundError(report_path)

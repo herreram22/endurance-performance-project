@@ -1,9 +1,17 @@
-"""Audit raw data filename patterns and sample JSON schemas across athletes.
+"""Audit raw Garmin discovery buckets and representative JSON schemas.
+
+This read-only diagnostic runs the production discovery stage across every
+athlete under ``data_raw``. It records bucket counts, sample filenames, and up
+to twenty top-level keys from representative files. The report supports parser
+development and unmatched-file review; because raw Garmin filenames can contain
+identity, the generated Markdown is ignored by version control and must be
+treated as private operational data.
 
 Usage:
     PYTHONPATH=src python src/tools/audit_data.py
 
-Produces: data_audit_report.md at repo root.
+Output:
+    ``data_audit_report.md`` at the repository root.
 """
 from pathlib import Path
 from discover_paths import explore_files

@@ -1,18 +1,33 @@
-import pandas as pd
+"""Validate and atomically persist athlete-level and combined pipeline outputs.
+
+This module is the final production pipeline stage. It enforces athlete
+isolation, minimum per-dataset schemas, valid dates, and unique athlete-day
+rows; converts nested Garmin objects to Parquet-safe JSON strings; writes
+Parquet/metadata atomically; and publishes the combined multi-athlete panel.
+
+Inputs are DataFrames produced by :mod:`table_builders` and the parser outputs
+retained for analysis. Outputs are per-athlete Parquet files plus JSON processing
+metadata under the configured output root. Existing files are replaced only
+when ``overwrite=True``. Temporary files are created beside their destination so
+``os.replace`` remains atomic on the same filesystem.
+"""
+
 import json
-from pathlib import Path
-from datetime import datetime, timezone
-from config import PIPELINE_VERSION
-import json
-from pathlib import Path as _Path
-from helpers import apply_field_mapping
 import logging
 import os
 import re
 import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pandas as pd
+
+from config import ENFORCE_SCHEMA, PIPELINE_VERSION
 
 logger = logging.getLogger(__name__)
 
+EPOCH_SECONDS_THRESHOLD = 10**9
+EPOCH_MILLISECONDS_THRESHOLD = 10**12
 ATHLETE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 DATASET_REQUIRED_COLUMNS = {
     "runs": {"athlete_id", "date", "activity_id"},
@@ -86,9 +101,6 @@ def _atomic_write_json(payload, output_path):
     finally:
         temp_path.unlink(missing_ok=True)
 
-# =========================
-# SAVING
-# =========================
 def _safe_date_range(df, date_col="date"):
     if df is None or df.empty or date_col not in df.columns:
         return None
@@ -104,7 +116,20 @@ def _safe_date_range(df, date_col="date"):
 
 
 def _make_parquet_safe(df):
-    """Convert nested Garmin JSON columns to strings before parquet writes."""
+    """Return a copy whose nested Garmin values are Parquet-safe.
+
+    Args:
+        df (pandas.DataFrame): Dataset prepared for persistence.
+
+    Returns:
+        pandas.DataFrame: Copy with date-named columns coerced to datetimes and
+        non-empty dict/list values serialized as JSON strings.
+
+    Notes:
+        Arbitrary object columns are not broadly date-inferred because Garmin
+        IDs and labels can look numeric or date-like. Empty nested values become
+        null to preserve the pipeline's missing-value convention.
+    """
     df = df.copy()
 
     for col in df.columns:
@@ -153,9 +178,9 @@ def _force_parse_timestamps(df):
                     mx = pd.to_numeric(col, errors="coerce").dropna()
                     if not mx.empty:
                         maxv = mx.max()
-                        if maxv > 10 ** 12:
+                        if maxv > EPOCH_MILLISECONDS_THRESHOLD:
                             df[key] = pd.to_datetime(col, unit="ms", errors="coerce")
-                        elif maxv > 10 ** 9:
+                        elif maxv > EPOCH_SECONDS_THRESHOLD:
                             df[key] = pd.to_datetime(col, unit="s", errors="coerce")
                         else:
                             df[key] = pd.to_datetime(col, errors="coerce")
@@ -171,8 +196,16 @@ def _force_parse_timestamps(df):
 def _ensure_canonical_columns(df):
     """Ensure canonical columns exist by copying from known source variants.
 
-    Uses `src/schema/field_mappings.json` to create canonical columns when a
-    mapped source column exists but canonical name is missing.
+    Args:
+        df (pandas.DataFrame): Dataset to normalize.
+
+    Returns:
+        pandas.DataFrame: Copy with missing canonical aliases copied from known
+        raw Garmin fields. Existing canonical values are never overwritten.
+
+    Notes:
+        This persistence-time safety net supports legacy parser outputs. Primary
+        normalization still occurs in :mod:`parsing`.
     """
     try:
         mapping_path = Path(__file__).parent / "schema" / "field_mappings.json"
@@ -195,11 +228,34 @@ def _ensure_canonical_columns(df):
 
     return df
 
-
-from config import ENFORCE_SCHEMA
-
-
 def save_outputs(athlete_id, outputs, output_dir, pipeline_version=PIPELINE_VERSION, overwrite=True, enforce_schema=None):
+    """Validate and save all non-empty datasets for one athlete.
+
+    Args:
+        athlete_id (str): Safe anonymized identifier used as the output
+            directory and required row-level ID.
+        outputs (Mapping[str, pandas.DataFrame | None]): Dataset names mapped to
+            parsed or transformed frames.
+        output_dir (pathlib.Path | str): Root containing athlete directories.
+        pipeline_version (str): Version recorded in processing metadata.
+        overwrite (bool): Whether existing dataset and metadata files may be
+            atomically replaced.
+        enforce_schema (bool | None): Override configured schema enforcement;
+            ``None`` uses ``config.ENFORCE_SCHEMA``.
+
+    Returns:
+        dict: Metadata describing saved/skipped datasets, shapes, date ranges,
+        columns, coverage, and missingness.
+
+    Raises:
+        ValueError: For unsafe IDs, missing required fields, cross-athlete rows,
+            invalid dates, or duplicate daily-master dates.
+        FileExistsError: When an output exists and ``overwrite`` is false.
+
+    Side Effects:
+        Creates the athlete directory, writes Parquet and ``metadata.json``
+        atomically, and prints save/skip diagnostics.
+    """
     athlete_id = _validate_athlete_id(athlete_id)
     output_dir = Path(output_dir)
     athlete_output_dir = output_dir / str(athlete_id)
@@ -298,7 +354,24 @@ def save_outputs(athlete_id, outputs, output_dir, pipeline_version=PIPELINE_VERS
 
 
 def save_all_athletes_daily_master(df, output_dir, overwrite=True):
-    """Validate and atomically publish the cross-athlete daily panel."""
+    """Validate and atomically publish the cross-athlete daily panel.
+
+    Args:
+        df (pandas.DataFrame): Combined athlete-day data.
+        output_dir (pathlib.Path | str): Destination root.
+        overwrite (bool): Whether existing combined files may be replaced.
+
+    Returns:
+        dict: Combined-file metadata including row/athlete counts and date range.
+
+    Raises:
+        ValueError: If input is empty, lacks required fields, contains invalid
+            IDs/dates, or duplicates an athlete-date key.
+        FileExistsError: If overwrite is disabled and either output exists.
+
+    Side Effects:
+        Atomically writes the combined Parquet file and companion metadata JSON.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / ALL_ATHLETES_DAILY_MASTER_FILE

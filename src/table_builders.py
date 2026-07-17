@@ -1,3 +1,17 @@
+"""Transform parsed Garmin datasets into athlete-day analytical tables.
+
+This module is the pipeline's transformation and merge stage. It converts raw
+running activities into stable engineering units, aggregates runs by day,
+constructs a complete calendar spanning every available source, and left-joins
+optional physiological, prediction, readiness, and training-status features.
+It also stacks validated per-athlete daily tables into the combined panel.
+
+Inputs are pandas DataFrames returned by :mod:`parsing`; outputs are DataFrames
+persisted by :mod:`save_output`. Optional Garmin capabilities are represented by
+null columns and coverage flags so athletes with older or different devices are
+not lost from the panel.
+"""
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -8,11 +22,19 @@ from helpers import normalize_date, drop_dup_dates, _select_existing, speed_to_p
 # TRANSFORM
 # =========================
 def standardize_daily_master_schema(df):
-    """Normalize daily_master-like frames to the canonical athlete-day schema.
+    """Normalize a daily-master frame to the combined-panel contract.
 
-    This keeps the existing per-athlete daily master layout intact while adding a
-    coverage flag for optional readiness features so downstream stacking keeps the
-    older-device athlete rows instead of dropping them.
+    Args:
+        df (pandas.DataFrame | None): Per-athlete daily table.
+
+    Returns:
+        pandas.DataFrame | None: Copy with normalized dates, required base
+        columns, and a boolean ``readiness_available`` coverage flag.
+
+    Notes:
+        Missing required columns are added as nulls here so frames from different
+        device generations can be aligned. Persistence validation still enforces
+        the minimum production contract before saving.
     """
     if df is None or df.empty:
         return df
@@ -45,10 +67,20 @@ def standardize_daily_master_schema(df):
 
 
 def build_multi_athlete_daily_master(daily_master_frames):
-    """Stack multiple athlete-level daily master tables into one canonical panel.
+    """Stack athlete-level daily tables into one canonical panel.
 
-    The output is sorted by athlete_id and date so the combined table remains
-    athlete-local, not globally sorted by date.
+    Args:
+        daily_master_frames (Iterable[pandas.DataFrame]): Per-athlete tables.
+
+    Returns:
+        pandas.DataFrame: Union-schema panel sorted by ``athlete_id`` and
+        ``date``. Empty inputs are ignored; all-empty input returns an empty
+        frame.
+
+    Notes:
+        Column order is stabilized for downstream consumers. Optional columns
+        are unioned rather than intersected, preventing device-capability
+        differences from deleting athlete rows.
     """
     frames = []
     for frame in daily_master_frames:
@@ -118,6 +150,25 @@ def build_multi_athlete_daily_master(daily_master_frames):
 
 
 def create_running_table(df):
+    """Filter summarized activities to running and derive analytical fields.
+
+    Args:
+        df (pandas.DataFrame): Parsed summarized activities. Expected Garmin
+            fields include ``activityType``, millisecond timestamps/durations,
+            scaled distance/elevation values, and speed.
+
+    Returns:
+        pandas.DataFrame: Running-only activities with normalized ``date``,
+        kilometres/miles, minutes, metres, metre-per-second speeds, paces, and
+        available heart-rate/power-zone durations.
+
+    Notes:
+        Garmin summarized exports encode several quantities in scaled integer
+        units: distance uses 1/100,000 km, elevation uses centimetres, duration
+        uses milliseconds, and summarized speed requires a factor of ten.
+        Raw analysis-irrelevant columns are removed with ``errors="ignore"`` so
+        older devices with narrower schemas remain compatible.
+    """
     runs_df = df[df["activityType"].eq("running")].copy()
     if runs_df.empty:
         return runs_df
@@ -198,12 +249,41 @@ def create_running_table(df):
 
 
 def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, maxmet, history):
+    """Merge parsed sources into a single continuous athlete-day table.
+
+    Args:
+        athlete_id (str): Anonymized identifier written to every output row.
+        runs (pandas.DataFrame): Engineered running activities; this source is
+            required because it establishes the analytical athlete.
+        metrics (pandas.DataFrame): Optional one-row-per-day acute-load metrics.
+        predictions (pandas.DataFrame): Optional race-prediction snapshots.
+        readiness (pandas.DataFrame): Optional intraday readiness snapshots.
+        maxmet (pandas.DataFrame): Optional MaxMet/VO2-max observations.
+        history (pandas.DataFrame): Optional training-status snapshots.
+
+    Returns:
+        pandas.DataFrame: One row per calendar day from the earliest through
+        latest valid date across all supplied sources. Rest-day training totals
+        are zero; unavailable physiological fields remain null.
+
+    Side Effects:
+        Prints warnings when runs are unavailable or invalid 1970 fallback dates
+        are removed.
+
+    Notes:
+        A complete calendar is used because recovery and prediction signals can
+        exist on non-running days. Merge policies are source-specific:
+        predictions/MaxMet use the last daily snapshot, metrics use their
+        deduplicated daily record, readiness exposes first/last/mean/count, and
+        history exposes explicit first/last/min/max values.
+    """
     if runs is None or runs.empty:
         print("Warning: daily master cannot be built without runs")
         return pd.DataFrame()
 
     runs = normalize_date(runs)
-    # Load field mappings to resolve raw vs canonical column names
+    # Field aliases allow old processed schemas and newly canonicalized parser
+    # outputs to enter the same aggregation without duplicating merge logic.
     import json
     mapping = {}
     try:
@@ -266,9 +346,8 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
 
     run_daily = runs.groupby("date").agg(**resolved_agg).reset_index()
 
-    # Recovery and training signals exist on rest days too. Build a complete
-    # calendar spanning every available source instead of using run days as the
-    # table's grain.
+    # Recovery and training signals exist on rest days. Using only run dates as
+    # the merge base would systematically discard those observations.
     date_series = []
     for frame in (runs, metrics, predictions, readiness, maxmet, history):
         if frame is None or frame.empty or "date" not in frame.columns:

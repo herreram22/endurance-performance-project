@@ -4,6 +4,7 @@ dev_logs/
 data_processed/athletes/
 data_processed_temp/
 data_reports/
+data_private/
 .venv
 __pycache__/
 *.py[cod]

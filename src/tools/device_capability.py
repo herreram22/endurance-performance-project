@@ -1,7 +1,13 @@
-"""Utilities to infer device capabilities from processed athlete data.
+"""Infer Garmin device/data capabilities from processed table schemas.
 
-The inference is heuristic-based: it detects presence of common columns
-to decide whether a device/report contains HR, power, cadence, GPS, etc.
+This post-processing utility scans persisted Parquet/CSV columns and reports
+evidence for heart rate, power, cadence, GPS, VO2-max, elevation, and related
+features. It does not claim a physical watch model; Garmin model mapping requires
+external/private metadata or a populated device registry.
+
+Inputs are one or more processed athlete roots. Outputs are JSON and Markdown
+reports under ``data_reports`` (or a caller-selected directory). The heuristic
+is intentionally column-based and read-only.
 """
 from pathlib import Path
 import json
@@ -28,6 +34,18 @@ def _lower_cols(cols):
 
 
 def infer_capabilities_from_columns(columns):
+    """Infer named capabilities from case-insensitive column substrings.
+
+    Args:
+        columns (Iterable[str]): Dataset column names.
+
+    Returns:
+        list[str]: Sorted unique capability names.
+
+    Notes:
+        This is evidence of available exported data, not proof of hardware
+        support. Derived fields can also trigger a capability.
+    """
     cols = _lower_cols(columns)
     caps = set()
     for cap, patterns in CAPABILITY_COLUMN_MAP.items():
@@ -56,6 +74,18 @@ def _sample_columns_from_file(path: Path, nrows: int = 50):
 
 
 def analyze_athlete_dir(athlete_path: Path):
+    """Inspect supported processed files for one athlete.
+
+    Args:
+        athlete_path (pathlib.Path): Athlete output directory.
+
+    Returns:
+        dict: Dataset schemas, per-capability dataset counts, and names of
+        detected device-ID columns.
+
+    Side Effects:
+        Reads all supported tables; it does not modify them.
+    """
     result = {
         "athlete": athlete_path.name,
         "datasets": [],
@@ -86,6 +116,20 @@ def analyze_athlete_dir(athlete_path: Path):
 
 
 def generate_report(processed_roots, output_dir: Path = Path("data_reports")):
+    """Generate machine- and human-readable capability reports.
+
+    Args:
+        processed_roots (Iterable[pathlib.Path | str]): Roots containing athlete
+            directories. Missing roots are skipped.
+        output_dir (pathlib.Path): Destination for JSON and Markdown reports.
+
+    Returns:
+        dict: Report containing one analysis entry per athlete directory.
+
+    Side Effects:
+        Creates ``output_dir`` and writes ``device_capability_report.json`` and
+        ``device_capability_report.md``.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     report = {"athletes": []}
 

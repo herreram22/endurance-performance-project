@@ -1,3 +1,16 @@
+"""Orchestrate discovery, parsing, transformation, and persistence per athlete.
+
+This module connects the production stages without embedding stage-specific
+logic. :func:`process_athlete` runs one extracted Garmin directory end to end.
+:func:`refresh_all_athletes_daily_master` rebuilds the persisted cross-athlete
+panel exclusively from validated per-athlete daily outputs.
+
+Inputs are athlete IDs plus raw/output directories. Outputs are Parquet/JSON
+files written by :mod:`save_output` and returned daily DataFrames. Rebuilding
+the combined panel from disk avoids mixing partially processed in-memory results
+with previously validated athletes.
+"""
+
 from config import BASE_PATH, DEFAULT_OUTPUT_DIR, PIPELINE_VERSION
 from parsing import (
     parse_activities,
@@ -22,7 +35,31 @@ def process_athlete(
     raw_data_dir=BASE_PATH,
     output_dir=DEFAULT_OUTPUT_DIR,
     overwrite=True,
+    refresh_combined=True,
 ):
+    """Run the complete production pipeline for one athlete directory.
+
+    Args:
+        athlete_id (str): Anonymized ID propagated to every analytical table.
+        raw_data_dir (pathlib.Path | str): Extracted Garmin export directory.
+        output_dir (pathlib.Path | str): Root for athlete output directories.
+        overwrite (bool): Whether existing athlete outputs may be replaced.
+        refresh_combined (bool): Whether to rebuild the combined panel after
+            this athlete saves. Batch callers disable this until all athletes
+            have completed.
+
+    Returns:
+        pandas.DataFrame: The athlete's daily master table.
+
+    Raises:
+        Exception: Discovery, parser, transformation, validation, or persistence
+            failures propagate so callers cannot mistake partial processing for
+            success.
+
+    Side Effects:
+        Writes per-athlete datasets and metadata; optionally republishes the
+        combined multi-athlete panel.
+    """
     files = explore_files(raw_data_dir)
 
     runs_df = parse_activities(files["activities"], athlete_id)
@@ -60,11 +97,31 @@ def process_athlete(
         overwrite=overwrite,
     )
 
+    if refresh_combined:
+        refresh_all_athletes_daily_master(output_dir, overwrite=True)
+
     return daily_master
 
 
 def refresh_all_athletes_daily_master(output_dir=DEFAULT_OUTPUT_DIR, overwrite=True):
-    """Rebuild the persisted panel from validated per-athlete outputs."""
+    """Rebuild the combined panel from persisted per-athlete daily tables.
+
+    Args:
+        output_dir (pathlib.Path | str): Root containing athlete directories.
+        overwrite (bool): Whether the combined files may be replaced.
+
+    Returns:
+        pandas.DataFrame: Validated, sorted multi-athlete daily panel.
+
+    Raises:
+        ValueError: If a daily table contains an ID different from its parent
+            directory.
+        RuntimeError: If no per-athlete daily masters exist.
+
+    Side Effects:
+        Writes combined Parquet and metadata files via
+        :func:`save_output.save_all_athletes_daily_master`.
+    """
     output_dir = Path(output_dir)
     frames = []
     for athlete_dir in sorted(output_dir.iterdir() if output_dir.exists() else []):

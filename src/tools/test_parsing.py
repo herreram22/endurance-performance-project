@@ -1,7 +1,16 @@
-"""Run parsing functions over discovered files and report any exceptions.
+"""Smoke-test representative files through every production file parser.
+
+This diagnostic discovers all athletes under ``data_raw`` and parses up to ten
+files from each supported bucket. It reports file-level shapes or exceptions,
+helping identify schema drift without executing transformation or persistence.
+Raw filenames may contain identity, so its ignored text output is private
+operational data.
 
 Usage:
     PYTHONPATH=src python src/tools/test_parsing.py
+
+Output:
+    ``parsing_test_report.txt`` at the repository root.
 """
 from pathlib import Path
 from discover_paths import explore_files

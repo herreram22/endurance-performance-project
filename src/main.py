@@ -1,3 +1,17 @@
+"""Command-line entry point for batch Garmin athlete processing.
+
+The CLI accepts either a raw-data root containing one directory per anonymized
+athlete or a single extracted athlete directory. Directory basenames are the
+authoritative athlete IDs; no identity is inferred from Garmin file contents.
+Each athlete is processed independently, failures are collected, and the
+combined panel is published only after every requested athlete succeeds.
+
+Typical usage::
+
+    python -m src.main --input-dir data_raw \
+        --output-dir data_processed/athletes
+"""
+
 import argparse
 from pathlib import Path
 
@@ -6,6 +20,20 @@ from pipeline import process_athlete, refresh_all_athletes_daily_master
 
 
 def discover_athlete_dirs(raw_data_dir):
+    """Resolve a raw-data root into deterministic athlete directories.
+
+    Args:
+        raw_data_dir (pathlib.Path | str): Root containing athlete subdirectories
+            or a single athlete directory containing files directly.
+
+    Returns:
+        list[pathlib.Path]: Sorted athlete directories. When no subdirectories
+        exist, the input directory is treated as one athlete.
+
+    Raises:
+        FileNotFoundError: If the input path does not exist.
+        ValueError: If the input path is a file.
+    """
     raw_data_dir = Path(raw_data_dir)
     if not raw_data_dir.exists():
         raise FileNotFoundError(f"Input path does not exist: {raw_data_dir}")
@@ -21,6 +49,12 @@ def discover_athlete_dirs(raw_data_dir):
 
 
 def parse_args():
+    """Parse production pipeline command-line arguments.
+
+    Returns:
+        argparse.Namespace: Input/output paths, optional athlete filter, and
+        overwrite policy.
+    """
     parser = argparse.ArgumentParser(
         description="Run the athlete data pipeline for one or more athlete directories."
     )
@@ -49,6 +83,15 @@ def parse_args():
 
 
 def main():
+    """Process requested athletes and publish the combined daily panel.
+
+    Raises:
+        RuntimeError: If no athlete directories match or any athlete fails.
+
+    Side Effects:
+        Prints progress, writes athlete outputs, and refreshes the combined
+        dataset once after a successful batch.
+    """
     args = parse_args()
 
     input_dir = Path(args.input_dir).expanduser().resolve()
@@ -76,6 +119,7 @@ def main():
                 raw_data_dir=athlete_dir,
                 output_dir=output_dir,
                 overwrite=overwrite,
+                refresh_combined=False,
             )
         except Exception as error:
             print(f"Error processing {athlete_id}: {error}")

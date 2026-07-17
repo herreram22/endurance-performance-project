@@ -1,9 +1,16 @@
-"""Compare existing processed outputs with newly generated temp outputs.
+"""Compare production and candidate pipeline outputs without changing either.
+
+This regression utility reads athlete datasets from
+``data_processed/athletes`` and ``data_processed_temp``. For each known dataset
+it compares presence, shape, schema differences, and date range. It intentionally
+does not perform value-level equality because some metadata/timestamp fields are
+expected to change between runs.
 
 Usage:
     PYTHONPATH=src python src/tools/compare_outputs.py
 
-Writes `data_compare_report.md` in repo root.
+Output:
+    ``data_compare_report.md`` at the repository root.
 """
 from pathlib import Path
 import pandas as pd

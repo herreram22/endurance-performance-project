@@ -1,6 +1,9 @@
 import pandas as pd
 import pytest
+import json
 
+from src.discover_paths import explore_files
+from src.parsing import parse_activities_file, parse_metrics
 from src.pipeline import refresh_all_athletes_daily_master
 from src.save_output import save_outputs
 from src.table_builders import build_daily_master_table
@@ -24,6 +27,44 @@ def _minimal_runs(athlete_id="athlete_001"):
 def test_parse_garmin_numeric_yyyymmdd():
     result = parse_garmin_date(pd.Series([20240620, 20240621]))
     assert result.tolist() == [pd.Timestamp("2024-06-20"), pd.Timestamp("2024-06-21")]
+
+
+def test_discovery_keeps_profile_biometrics_and_health_status_unmatched(tmp_path):
+    profile = tmp_path / "123_userBioMetrics.json"
+    health = tmp_path / "2026-01-01_123_healthStatusData.json"
+    acute = tmp_path / "MetricsAcuteTrainingLoad_20260101_20260102_123.json"
+    profile.write_text(json.dumps({"weight": 70000}))
+    health.write_text(json.dumps([{"calendarDate": "2026-01-01", "metrics": []}]))
+    acute.write_text(json.dumps([{
+        "calendarDate": "2026-01-01",
+        "dailyTrainingLoadAcute": 100,
+    }]))
+
+    found = explore_files(tmp_path)
+
+    assert found["metrics"] == [acute]
+    assert set(found["unmatched"]) == {health, profile}
+
+
+def test_metrics_parser_safely_rejects_records_without_dates(tmp_path):
+    profile = tmp_path / "profile.json"
+    profile.write_text(json.dumps([{"weight": 70000}]))
+
+    result = parse_metrics([profile], "athlete_001")
+
+    assert result.empty
+
+
+def test_activity_source_filename_redacts_embedded_email(tmp_path):
+    source = tmp_path / "private@example.com_0_summarizedActivities.json"
+    source.write_text(json.dumps({
+        "summarizedActivitiesExport": [{"activityType": "running"}]
+    }))
+
+    result = parse_activities_file(source, "athlete_001")
+
+    assert result.loc[0, "source_file"] == "[redacted-email]_0_summarizedActivities.json"
+    assert "private@example.com" not in result.to_string()
 
 
 def test_save_outputs_rejects_path_traversal_athlete_id(tmp_path):

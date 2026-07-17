@@ -1,7 +1,13 @@
-"""Validate processed tables against the canonical schema mapping.
+"""Audit processed table columns against the legacy canonical-field checklist.
 
-This tool loads `src/schema/field_mappings.json` (if present) and checks
-that key canonical fields exist in processed outputs.
+This read-only utility loads ``src/schema/field_mappings.json`` and scans
+persisted Parquet/CSV schemas. It reports missing ``date``, ``activity_id``,
+``device_id``, and ``user_id`` fields.
+
+Important:
+    The checklist predates dataset-specific contracts in :mod:`save_output`.
+    Aggregate/daily tables legitimately omit activity-level fields, so findings
+    are audit leads rather than universal pipeline failures.
 """
 from pathlib import Path
 import json
@@ -12,6 +18,17 @@ logger = logging.getLogger(__name__)
 
 
 def load_field_mappings(mapping_path: Path):
+    """Load raw-to-canonical Garmin field aliases.
+
+    Args:
+        mapping_path (pathlib.Path): Mapping JSON path.
+
+    Returns:
+        dict: Parsed mapping, or an empty mapping if the file is absent.
+
+    Side Effects:
+        Logs a warning for a missing mapping file.
+    """
     if not mapping_path.exists():
         logger.warning("Field mappings not found at %s", mapping_path)
         return {}
@@ -32,6 +49,19 @@ def _sample_columns_from_file(path: Path):
 
 
 def validate_processed(processed_root: Path, mapping_path: Path = Path("src/schema/field_mappings.json")):
+    """Inspect processed dataset schemas below an athlete output root.
+
+    Args:
+        processed_root (pathlib.Path): Root containing athlete directories.
+        mapping_path (pathlib.Path): Canonical mapping path.
+
+    Returns:
+        list[dict]: Per-athlete missing-field summary and file-level findings.
+
+    Notes:
+        This legacy audit applies one broad field checklist to every table. Use
+        persistence validation for authoritative dataset-specific requirements.
+    """
     mappings = load_field_mappings(mapping_path)
     required = {"date", "activity_id", "device_id", "user_id"}
     findings = []

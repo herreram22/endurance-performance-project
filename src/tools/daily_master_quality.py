@@ -1,4 +1,10 @@
-"""Quality checks for the daily_master output."""
+"""Validate structural and readiness coverage quality of daily-master outputs.
+
+This production validation utility reads persisted per-athlete Parquet tables
+after pipeline execution. It reports required columns, invalid dates, athlete ID
+values, and readiness-feature coverage without modifying data. Reports may be
+printed or written as JSON for ingestion diagnostics and regression checks.
+"""
 from pathlib import Path
 import pandas as pd
 import json
@@ -18,6 +24,24 @@ OPTIONAL_COVERAGE_COLUMNS = [
 
 
 def validate_daily_master(path: Path):
+    """Validate one persisted daily-master Parquet file.
+
+    Args:
+        path (pathlib.Path): Daily-master Parquet path.
+
+    Returns:
+        dict: Row count, missing required columns, invalid-date counts, observed
+        athlete IDs, and readiness coverage status/fraction.
+
+    Raises:
+        FileNotFoundError: If ``path`` does not exist.
+        Exception: Parquet decoding errors propagate to make corrupt outputs
+            visible.
+
+    Notes:
+        Readiness is optional across Garmin devices. Its absence is reported as
+        partial coverage, not as a structural failure.
+    """
     df = pd.read_parquet(path)
     missing = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     dates = pd.to_datetime(df["date"], errors="coerce") if "date" in df.columns else pd.Series(dtype="datetime64[ns]")
@@ -25,8 +49,6 @@ def validate_daily_master(path: Path):
     null_dates = int(dates.isna().sum()) if not dates.empty else 0
 
     athlete_id_values = sorted(df["athlete_id"].dropna().unique().astype(str)) if "athlete_id" in df.columns else []
-    legacy_watch = any(value == "athlete_002" for value in athlete_id_values)
-
     readiness_cols_present = [col for col in OPTIONAL_COVERAGE_COLUMNS if col in df.columns]
     if readiness_cols_present:
         readiness_present = df[readiness_cols_present].notna().any(axis=1)
@@ -37,8 +59,10 @@ def validate_daily_master(path: Path):
         feature_coverage = float(readiness_available.mean()) if not readiness_available.empty else 0.0
         coverage_status = "full" if readiness_available.all() else "partial"
     else:
-        feature_coverage = 0.0 if legacy_watch else 1.0
-        coverage_status = "partial" if legacy_watch else "full"
+        # Absence of readiness columns is missing capability/coverage regardless
+        # of athlete ID; IDs must not encode device-specific validation rules.
+        feature_coverage = 0.0
+        coverage_status = "partial"
 
     result = {
         "file": str(path),
@@ -54,6 +78,19 @@ def validate_daily_master(path: Path):
 
 
 def generate_report(root: Path, out_path: Path = None):
+    """Validate every athlete daily master below an output root.
+
+    Args:
+        root (pathlib.Path): Directory containing athlete subdirectories.
+        out_path (pathlib.Path | None): Optional JSON report destination.
+
+    Returns:
+        dict: ``athletes`` list containing validation results or missing-file
+        markers.
+
+    Side Effects:
+        Writes formatted JSON when ``out_path`` is provided.
+    """
     root = Path(root)
     report = {"athletes": []}
     for athlete_dir in sorted(root.iterdir()):

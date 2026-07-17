@@ -19,7 +19,8 @@ def test_validate_daily_master(tmp_path):
     assert result["bad_1970_dates"] == 0
     assert result["null_dates"] == 0
     assert result["athlete_id_values"] == ["athlete_001"]
-    assert result["coverage_status"] == "full"
+    assert result["coverage_status"] == "partial"
+    assert result["feature_coverage"] == 0.0
 
 
 def test_build_multi_athlete_daily_master_stacks_and_marks_missing_features():
