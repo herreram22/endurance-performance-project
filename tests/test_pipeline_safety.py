@@ -128,6 +128,36 @@ def test_daily_master_includes_rest_days_with_recovery_data():
     assert result["athlete_id"].eq("athlete_001").all()
 
 
+def test_daily_master_supports_history_without_legacy_load_tunnel_fields():
+    history = pd.DataFrame({
+        "athlete_id": ["athlete_006", "athlete_006"],
+        "date": pd.to_datetime(["2024-01-02", "2024-01-02"]),
+        "timestamp": pd.to_datetime([
+            "2024-01-02 08:00:00",
+            "2024-01-02 18:00:00",
+        ]),
+        "trainingStatus": ["MAINTAINING", "PRODUCTIVE"],
+        "fitnessLevelTrend": ["STEADY", "UP"],
+    })
+
+    result = build_daily_master_table(
+        athlete_id="athlete_006",
+        runs=_minimal_runs("athlete_006"),
+        metrics=pd.DataFrame(),
+        predictions=pd.DataFrame(),
+        readiness=pd.DataFrame(),
+        maxmet=pd.DataFrame(),
+        history=history,
+    )
+
+    history_day = result.loc[result["date"] == pd.Timestamp("2024-01-02")].iloc[0]
+    assert history_day["training_status_first"] == "MAINTAINING"
+    assert history_day["training_status_last"] == "PRODUCTIVE"
+    assert history_day["fitness_level_trend"] == "UP"
+    assert "load_tunnel_min" not in result.columns
+    assert "load_level_trend" not in result.columns
+
+
 def test_refresh_all_athletes_daily_master_persists_combined_panel(tmp_path):
     for athlete_id, distance in (("athlete_001", 5.0), ("athlete_002", 7.0)):
         athlete_dir = tmp_path / athlete_id

@@ -448,24 +448,33 @@ def build_daily_master_table(athlete_id, runs, metrics, predictions, readiness, 
 
     if history is not None and not history.empty:
         history = normalize_date(history)
-        agg_map = {
+        history_aggregation_candidates = {
             "load_tunnel_min": ("loadTunnelMin", "min"),
             "training_status_first": ("trainingStatus", "first"),
             "training_status_last": ("trainingStatus", "last"),
             "training_status": ("trainingStatus", "last"),
             "fitness_level_trend": ("fitnessLevelTrend", "last"),
             "load_level_trend": ("loadLevelTrend", "last"),
+            "load_tunnel_max": ("loadTunnelMax", "max"),
         }
-        if "loadTunnelMax" in history.columns:
-            agg_map["load_tunnel_max"] = ("loadTunnelMax", "max")
-
-        training_history_daily_df = (
-            history.sort_values("date")
-            .groupby("date")
-            .agg(**agg_map)
-            .reset_index()
-        )
-        daily_master = daily_master.merge(training_history_daily_df, on="date", how="left")
+        # Newer Garmin exports can omit the legacy load-tunnel fields entirely.
+        # Aggregate only capabilities present in this athlete's history; the
+        # combined panel will represent unsupported features as null.
+        history_aggregations = {
+            output_name: aggregation
+            for output_name, aggregation in history_aggregation_candidates.items()
+            if aggregation[0] in history.columns
+        }
+        if history_aggregations:
+            training_history_daily_df = (
+                history.sort_values("date")
+                .groupby("date")
+                .agg(**history_aggregations)
+                .reset_index()
+            )
+            daily_master = daily_master.merge(
+                training_history_daily_df, on="date", how="left"
+            )
 
     daily_master["athlete_id"] = athlete_id
 
